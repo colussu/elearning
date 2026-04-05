@@ -1,8 +1,32 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 
-// Connect to SQLite DB
-const db = new Database(path.join(process.cwd(), 'elearning.db'));
+// 判斷是否在 Azure 環境 (Azure App Service 會提供此變數)
+const isAzure = process.env.AZURE_APP_SERVICE_NAME !== undefined;
+
+/**
+ * 取得資料庫路徑：
+ * - Azure 環境：放在持久性的 /home/data 目錄，確保部署時資料不會消失。
+ * - 本地環境：放在專案根目錄 (process.cwd())。
+ */
+const getDbPath = () => {
+  if (isAzure) {
+    const azurePersistentPath = '/home/data';
+    if (!fs.existsSync(azurePersistentPath)) {
+      try {
+        fs.mkdirSync(azurePersistentPath, { recursive: true });
+      } catch (err) {
+        console.error('Failed to create Azure persistent directory:', err);
+      }
+    }
+    return path.join(azurePersistentPath, 'elearning.db');
+  }
+  return path.join(process.cwd(), 'elearning.db');
+};
+
+const dbPath = getDbPath();
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
 // Initialize Schema & Run Migrations
